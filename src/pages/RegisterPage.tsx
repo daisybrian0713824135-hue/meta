@@ -48,10 +48,11 @@ const RegisterPage: React.FC = () => {
 
   const onSubmit = async (data: FormData) => {
     setLoading(true);
-    const email = `${data.username.toLowerCase()}@miaoda.com`;
+    // Use username-based synthetic email so username is the login identifier
+    const authEmail = `${data.username.toLowerCase()}@miaoda.com`;
 
-    const { error } = await supabase.auth.signUp({
-      email,
+    const { data: signUpData, error } = await supabase.auth.signUp({
+      email: authEmail,
       password: data.password,
       options: {
         data: {
@@ -65,24 +66,31 @@ const RegisterPage: React.FC = () => {
     });
 
     if (error) {
-      if (error.message.includes('already registered')) {
+      if (error.message.toLowerCase().includes('already registered') || error.message.toLowerCase().includes('already been registered')) {
         toast.error('Username already taken. Please choose another.');
       } else {
-        toast.error(error.message);
+        toast.error(error.message || 'Failed to create account. Please try again.');
       }
       setLoading(false);
       return;
     }
 
-    // Update phone in profiles after creation
-    await supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (user) {
-        await supabase.from('profiles').update({ phone: data.phone, email: data.email }).eq('id', user.id);
-      }
-    });
+    // If profile trigger didn't capture phone/email, patch them now using the
+    // user returned directly from signUp (avoids unreliable getUser() race).
+    const newUser = signUpData?.user;
+    if (newUser?.id) {
+      await supabase
+        .from('profiles')
+        .update({
+          phone: data.phone || null,
+          email: data.email || null,
+        })
+        .eq('id', newUser.id);
+    }
 
     toast.success('Account created! Welcome to MetaPay 🎉');
     navigate('/dashboard', { replace: true });
+    setLoading(false);
   };
 
   return (
