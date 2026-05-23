@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "HwYdZHgZb6a5x2qDLMX2E"
+uri = "file://metapay-complete.tar.gz"
+type = "unspecified"
+title = "MetaPay Agencies — Full Source Code"

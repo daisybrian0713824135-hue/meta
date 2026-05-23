@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "MetaPay"
+version = "1.0.0"
+id = "artifacts/metapay"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 23813
+
+[services.development]
+run = "pnpm --filter @workspace/metapay run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/metapay", "run", "build" ]
+publicDir = "artifacts/metapay/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23813"
+BASE_PATH = "/"
