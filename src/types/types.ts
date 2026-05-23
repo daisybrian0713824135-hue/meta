@@ -49,6 +49,18 @@ export interface Package {
   updated_at: string;
 }
 
+export type TaskContentType = 'video_embed' | 'survey_form' | 'annotation' | 'countdown_claim' | 'referral_share' | 'feedback_form' | 'text_instructions';
+
+export interface TaskQuestion {
+  id: string;
+  question?: string;
+  review?: string;
+  imageUrl?: string;
+  type: 'radio' | 'checkbox' | 'textarea' | 'text';
+  options?: string[];
+  placeholder?: string;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -59,6 +71,10 @@ export interface Task {
   estimated_time_minutes: number;
   instructions: string | null;
   external_url: string | null;
+  content_type: TaskContentType;
+  embed_url: string | null;
+  task_questions: TaskQuestion[] | null;
+  watch_duration_seconds: number | null;
   is_active: boolean;
   daily_limit: number;
   total_completions: number;
