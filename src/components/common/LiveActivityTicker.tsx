@@ -31,6 +31,8 @@ export const LiveActivityTicker: React.FC<LiveActivityTickerProps> = ({ compact 
   const [currentIndex, setCurrentIndex] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const channelIdRef = useRef(`live-activity-ticker-${Math.random().toString(36).slice(2)}`);
+
   useEffect(() => {
     // Initial fetch
     supabase
@@ -43,9 +45,10 @@ export const LiveActivityTicker: React.FC<LiveActivityTickerProps> = ({ compact 
         if (data) setActivities(data as LiveActivity[]);
       });
 
-    // Realtime subscription
+    // Use a unique channel name per mount to avoid reusing an already-subscribed channel
+    const channelName = channelIdRef.current;
     const channel = supabase
-      .channel('live-activity-ticker')
+      .channel(channelName)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'live_activity' }, (payload) => {
         const newActivity = payload.new as LiveActivity;
         if (newActivity.is_visible) {
