@@ -7,10 +7,11 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-output
+# Dependencies
+node_modules/
+dist/
+dist-ssr/
+output/
 *.local
 package-lock.json
 
@@ -24,6 +25,21 @@ package-lock.json
 *.njsproj
 *.sln
 *.sw?
-.sync
-history/*.json
-.vite_cache
+
+# Build artifacts
+.vite/
+.vite_cache/
+
+# System files
+.sync/
+.history/
+history/
+.rules/
+tasks/
+
+# Secrets
+.env
+.env.local
+
+# Documentation (keep docs/ but not deployment guides in root)
+!DEPLOYMENT_GUIDE.md
