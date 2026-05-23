@@ -1,131 +1,84 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-// @ts-ignore
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/db/supabase';
-import type { User } from '@supabase/supabase-js';
-// @ts-ignore
+import type { User, Session } from '@supabase/supabase-js';
 import type { Profile } from '@/types/types';
-import { toast } from 'sonner';
 
-export async function getProfile(userId: string): Promise<Profile | null> {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', userId)
-    .maybeSingle();
-
-  if (error) {
-    console.error('获取用户信息失败:', error);
-    return null;
-  }
-  return data;
-}
 interface AuthContextType {
   user: User | null;
+  session: Session | null;
   profile: Profile | null;
   loading: boolean;
-  signInWithUsername: (username: string, password: string) => Promise<{ error: Error | null }>;
-  signUpWithUsername: (username: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  isAdmin: boolean;
+  isActive: boolean;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  session: null,
+  profile: null,
+  loading: true,
+  signOut: async () => {},
+  refreshProfile: async () => {},
+  isAdmin: false,
+  isActive: false,
+});
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export const useAuth = () => {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  return ctx;
+};
+
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const refreshProfile = async () => {
-    if (!user) {
-      setProfile(null);
-      return;
-    }
+  const fetchProfile = async (userId: string) => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
+    if (!error && data) setProfile(data as Profile);
+  };
 
-    const profileData = await getProfile(user.id);
-    setProfile(profileData);
+  const refreshProfile = async () => {
+    if (user) await fetchProfile(user.id);
   };
 
   useEffect(() => {
-    supabase
-      .auth
-      .getSession()
-      // @ts-ignore
-      .then(({ data: { session } }) => {
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          getProfile(session.user.id).then(setProfile);
-        }
-      })
-      // @ts-ignore
-      .catch(error => {
-        toast.error(`获取用户信息失败: ${error.message}`);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
+    supabase.auth.getSession().then(({ data: { session: s } }) => {
+      setSession(s);
+      setUser(s?.user ?? null);
+      if (s?.user) fetchProfile(s.user.id).finally(() => setLoading(false));
+      else setLoading(false);
+    });
 
-    // @ts-ignore
-    // In this function, do NOT use any await calls. Use `.then()` instead to avoid deadlocks.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        getProfile(session.user.id).then(setProfile);
-      } else {
-        setProfile(null);
-      }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
+      setSession(s);
+      setUser(s?.user ?? null);
+      if (s?.user) fetchProfile(s.user.id);
+      else { setProfile(null); setLoading(false); }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  const signInWithUsername = async (username: string, password: string) => {
-    try {
-      const email = `${username}@miaoda.com`;
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) throw error;
-      return { error: null };
-    } catch (error) {
-      return { error: error as Error };
-    }
-  };
-
-  const signUpWithUsername = async (username: string, password: string) => {
-    try {
-      const email = `${username}@miaoda.com`;
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-      });
-
-      if (error) throw error;
-      return { error: null };
-    } catch (error) {
-      return { error: error as Error };
-    }
-  };
-
   const signOut = async () => {
     await supabase.auth.signOut();
-    setUser(null);
     setProfile(null);
   };
 
+  const isAdmin = profile?.role === 'admin' || profile?.role === 'super_admin' || profile?.role === 'moderator';
+  const isActive = profile?.status === 'active';
+
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signInWithUsername, signUpWithUsername, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ user, session, profile, loading, signOut, refreshProfile, isAdmin, isActive }}>
       {children}
     </AuthContext.Provider>
   );
-}
-
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-}
+};

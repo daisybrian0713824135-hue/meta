@@ -1,52 +1,43 @@
-import { useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import React from 'react';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { routes } from '@/routes';
 
 interface RouteGuardProps {
   children: React.ReactNode;
+  requireAdmin?: boolean;
+  requireActive?: boolean;
 }
 
-// System-level public routes (no need to register in routes.tsx)
-const SYSTEM_PUBLIC_ROUTES = ['/login', '/403', '/404'];
+const PUBLIC_ROUTES = ['/', '/login', '/register'];
 
-// Derived from routes.tsx: all routes marked with public: true
-const routePublicPaths = routes.filter(r => r.public).map(r => r.path);
-
-const PUBLIC_ROUTES = [...SYSTEM_PUBLIC_ROUTES, ...routePublicPaths];
-
-function matchPublicRoute(path: string, patterns: string[]) {
-  return patterns.some(pattern => {
-    if (pattern.includes('*')) {
-      const regex = new RegExp('^' + pattern.replace('*', '.*') + '$');
-      return regex.test(path);
-    }
-    return path === pattern;
-  });
-}
-
-export function RouteGuard({ children }: RouteGuardProps) {
-  const { user, loading } = useAuth();
-  const navigate = useNavigate();
+export const RouteGuard: React.FC<RouteGuardProps> = ({ children, requireAdmin = false, requireActive = false }) => {
+  const { user, profile, loading } = useAuth();
   const location = useLocation();
-
-  useEffect(() => {
-    if (loading) return;
-
-    const isPublic = matchPublicRoute(location.pathname, PUBLIC_ROUTES);
-
-    if (!user && !isPublic) {
-      navigate('/login', { state: { from: location.pathname }, replace: true });
-    }
-  }, [user, loading, location.pathname, navigate]);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-12 w-12 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+          <p className="text-muted-foreground text-sm">Loading MetaPay...</p>
+        </div>
       </div>
     );
   }
 
+  const isPublic = PUBLIC_ROUTES.includes(location.pathname);
+
+  if (!user && !isPublic) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (requireAdmin && profile?.role === 'user') {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  if (requireActive && profile?.status !== 'active') {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   return <>{children}</>;
-}
+};
